@@ -1,0 +1,6 @@
+transformers>=4.40.0
+safetensors
+einops
+scipy
+librosa
+tiktoken
