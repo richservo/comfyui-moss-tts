@@ -15,6 +15,7 @@ TTSD_MODEL_ID = "OpenMOSS-Team/MOSS-TTSD-v1.0"
 
 def _normalize_text(text: str) -> str:
     text = re.sub(r"\[(\d+)\]", r"[S\1]", text)
+    text = re.sub(r"\[s(\d+)\]", r"[S\1]", text)
     remove_chars = "【】《》（）『』「」\u2018\u2019\u201c\u201d\"-_\u201c\u201d\uff5e~\u2018\u2019"
 
     segments = re.split(r"(?=\[S\d+\])", text.replace("\n", " "))
