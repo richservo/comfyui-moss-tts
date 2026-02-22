@@ -24,7 +24,7 @@ Custom nodes for the [MOSS-TTS](https://github.com/OpenMOSS/MOSS-TTS) model fami
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/your-username/comfyui-moss-tts
+git clone https://github.com/richservo/comfyui-moss-tts
 ```
 
 **2. Install dependencies:**
