@@ -51,6 +51,7 @@ class MossTTSSoundEffect:
             )
 
         torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
         tokens = max(1, int(duration_seconds * TOKENS_PER_SECOND))
 

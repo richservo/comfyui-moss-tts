@@ -156,6 +156,7 @@ class MossTTSDialogue:
             )
 
         torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
         # Normalise and validate the dialogue text
         text = dialogue_text.strip()

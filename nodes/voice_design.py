@@ -51,6 +51,7 @@ class MossTTSVoiceDesign:
             )
 
         torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
         user_msg = processor.build_user_message(
             text=text,

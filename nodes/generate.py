@@ -52,6 +52,7 @@ class MossTTSGenerate:
         model, processor, sample_rate, device, model_id = moss_pipe
 
         torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
         reference = None
         if reference_audio is not None:

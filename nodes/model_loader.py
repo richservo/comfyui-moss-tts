@@ -13,6 +13,10 @@ from ..utils import backend
 MODEL_ID_TTSD = "OpenMOSS-Team/MOSS-TTSD-v1.0"
 MODEL_ID_VOICE_GENERATOR = "OpenMOSS-Team/MOSS-VoiceGenerator"
 
+# Track loaded model so we can free VRAM before loading a new one
+_current_model = None
+_current_processor = None
+
 # Store models in ComfyUI's models directory under moss-tts/
 MOSS_MODELS_DIR = os.path.join(folder_paths.models_dir, "moss-tts")
 os.makedirs(MOSS_MODELS_DIR, exist_ok=True)
@@ -47,11 +51,24 @@ class MossTTSModelLoader:
     CATEGORY = "audio/MOSS-TTS"
 
     def load_model(self, model_variant, local_model_path, codec_local_path):
+        global _current_model, _current_processor
+
         device = mm.get_torch_device()
         dtype = torch.bfloat16 if str(device).startswith("cuda") else torch.float32
         attn_implementation = backend.resolve_attn_implementation(device, dtype)
 
         mm.unload_all_models()
+
+        # Free the previous MOSS model from VRAM
+        if _current_processor is not None:
+            if hasattr(_current_processor, "audio_tokenizer"):
+                _current_processor.audio_tokenizer.cpu()
+            _current_processor = None
+        if _current_model is not None:
+            _current_model.cpu()
+            del _current_model
+            _current_model = None
+        torch.cuda.empty_cache()
 
         model_id = MODEL_VARIANTS[model_variant]
         model_path = local_model_path.strip() if local_model_path.strip() else model_id
@@ -77,6 +94,9 @@ class MossTTSModelLoader:
             torch_dtype=dtype,
         ).to(device)
         model.eval()
+
+        _current_model = model
+        _current_processor = processor
 
         return ((model, processor, SAMPLE_RATE, device, model_id),)
 
