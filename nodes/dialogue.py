@@ -179,6 +179,13 @@ class MossTTSDialogue:
             if ref_audio is None:
                 continue
 
+            # Require prompt text when reference audio is provided (matches TTSD CLI)
+            if not prompt_text:
+                raise ValueError(
+                    f"S{speaker_id} must provide prompt text (transcript of the reference audio) "
+                    f"together with reference audio."
+                )
+
             wav, orig_sr = comfyui_audio_to_moss_tensor(ref_audio)
             wav = resample_if_needed(wav, orig_sr, sample_rate)
             # encode_audios_from_wav expects 2D tensors [channels, samples]
@@ -194,7 +201,7 @@ class MossTTSDialogue:
             conversations = [[user_msg]]
             mode = "generation"
         else:
-            # Build conversation_text: prepend each speaker's prompt text, then the dialogue
+            # Continuation mode — reference audio + prompt text for each speaker
             prompt_prefix = "".join(prompt_text_map[sid] for sid in cloned_speakers)
             conversation_text = _merge_consecutive_speaker_tags(prompt_prefix + text)
             if normalize_text:
