@@ -1,5 +1,6 @@
 import hashlib
 import torch
+from huggingface_hub import snapshot_download
 from transformers import AutoModel, AutoProcessor
 
 import comfy.model_management as mm
@@ -9,6 +10,16 @@ from ..utils import backend
 
 MODEL_ID_TTSD = "OpenMOSS-Team/MOSS-TTSD-v1.0"
 MODEL_ID_VOICE_GENERATOR = "OpenMOSS-Team/MOSS-VoiceGenerator"
+
+
+def _resolve_local_dir(repo_id_or_path):
+    """If repo_id_or_path is a HF repo ID, download it and return the local cache path.
+    If it's already a local path, return it as-is.
+    Works around MOSS processor bug: Path(repo_id) mangles / to \\ on Windows."""
+    import os
+    if os.path.isdir(repo_id_or_path):
+        return repo_id_or_path
+    return snapshot_download(repo_id_or_path)
 
 
 class MossTTSModelLoader:
@@ -34,19 +45,24 @@ class MossTTSModelLoader:
         mm.unload_all_models()
 
         model_id = MODEL_VARIANTS[model_variant]
-        model_path = local_model_path if local_model_path.strip() else model_id
+        model_path = local_model_path.strip() if local_model_path.strip() else model_id
+
+        # Pre-resolve to local directory to avoid MOSS processor's
+        # Path(repo_id) bug on Windows (converts / to \)
+        local_dir = _resolve_local_dir(model_path)
 
         processor_kwargs = {"trust_remote_code": True}
         if model_id == MODEL_ID_TTSD:
-            processor_kwargs["codec_path"] = codec_local_path.strip() or DEFAULT_CODEC_PATH
+            codec_path = codec_local_path.strip() or DEFAULT_CODEC_PATH
+            processor_kwargs["codec_path"] = _resolve_local_dir(codec_path)
         elif model_id == MODEL_ID_VOICE_GENERATOR:
             processor_kwargs["normalize_inputs"] = True
 
-        processor = AutoProcessor.from_pretrained(model_path, **processor_kwargs)
+        processor = AutoProcessor.from_pretrained(local_dir, **processor_kwargs)
         processor.audio_tokenizer = processor.audio_tokenizer.to(device)
 
         model = AutoModel.from_pretrained(
-            model_path,
+            local_dir,
             trust_remote_code=True,
             attn_implementation=attn_implementation,
             torch_dtype=dtype,

@@ -2,6 +2,7 @@ import torch
 import comfy.model_management as mm
 
 from ..utils.audio_utils import moss_tensor_to_comfyui_audio
+from ..utils.backend import run_generation
 
 VOICE_GENERATOR_MODEL_ID = "OpenMOSS-Team/MOSS-VoiceGenerator"
 
@@ -61,14 +62,9 @@ class MossTTSVoiceDesign:
         attention_mask = batch["attention_mask"].to(device)
 
         with torch.no_grad():
-            outputs = model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=max_new_tokens,
-                audio_temperature=temperature,
-                audio_top_p=top_p,
-                audio_top_k=top_k,
-                audio_repetition_penalty=repetition_penalty,
+            outputs = run_generation(
+                model, input_ids, attention_mask, model_id, processor,
+                temperature, top_p, top_k, repetition_penalty, max_new_tokens,
             )
 
         messages = processor.decode(outputs)

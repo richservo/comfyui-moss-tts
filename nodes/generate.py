@@ -6,6 +6,7 @@ from ..utils.audio_utils import (
     moss_tensor_to_comfyui_audio,
     resample_if_needed,
 )
+from ..utils.backend import run_generation
 
 
 class MossTTSGenerate:
@@ -56,6 +57,9 @@ class MossTTSGenerate:
         if reference_audio is not None:
             wav, orig_sr = comfyui_audio_to_moss_tensor(reference_audio)
             wav = resample_if_needed(wav, orig_sr, sample_rate)
+            # encode_audios_from_wav expects 2D tensors [channels, samples]
+            if wav.dim() == 1:
+                wav = wav.unsqueeze(0)
             codes_list = processor.encode_audios_from_wav(
                 wav_list=[wav],
                 sampling_rate=sample_rate,
@@ -75,14 +79,9 @@ class MossTTSGenerate:
         attention_mask = batch["attention_mask"].to(device)
 
         with torch.no_grad():
-            outputs = model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=max_new_tokens,
-                audio_temperature=temperature,
-                audio_top_p=top_p,
-                audio_top_k=top_k,
-                audio_repetition_penalty=repetition_penalty,
+            outputs = run_generation(
+                model, input_ids, attention_mask, model_id, processor,
+                temperature, top_p, top_k, repetition_penalty, max_new_tokens,
             )
 
         messages = processor.decode(outputs)
