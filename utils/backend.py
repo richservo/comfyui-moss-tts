@@ -9,9 +9,6 @@ torch.backends.cuda.enable_math_sdp(True)
 
 LOCAL_MODEL_IDS = {
     "OpenMOSS-Team/MOSS-TTS-Local-Transformer",
-    "OpenMOSS-Team/MOSS-TTSD-v1.0",
-    "OpenMOSS-Team/MOSS-VoiceGenerator",
-    "OpenMOSS-Team/MOSS-SoundEffect",
 }
 
 
