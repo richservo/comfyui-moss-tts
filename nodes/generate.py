@@ -2,6 +2,7 @@ import torch
 import comfy.model_management as mm
 
 from ..utils.audio_utils import (
+    apply_handles,
     comfyui_audio_to_moss_tensor,
     moss_tensor_to_comfyui_audio,
     resample_if_needed,
@@ -15,6 +16,7 @@ class MossTTSGenerate:
         return {
             "required": {
                 "moss_pipe": ("MOSS_TTS_PIPE",),
+                "language": (["auto", "zh", "en", "ja", "ko"],),
                 "text": ("STRING", {"default": "", "multiline": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "temperature": ("FLOAT", {"default": 1.7, "min": 0.0, "max": 5.0, "step": 0.01}),
@@ -24,6 +26,8 @@ class MossTTSGenerate:
                 "max_new_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192, "step": 1}),
                 "enable_duration_control": ("BOOLEAN", {"default": False}),
                 "duration_tokens": ("INT", {"default": 325, "min": 1, "max": 4096, "step": 1}),
+                "head_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
+                "tail_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
             },
             "optional": {
                 "reference_audio": ("AUDIO",),
@@ -38,6 +42,7 @@ class MossTTSGenerate:
     def generate(
         self,
         moss_pipe,
+        language,
         text,
         seed,
         temperature,
@@ -47,6 +52,8 @@ class MossTTSGenerate:
         max_new_tokens,
         enable_duration_control,
         duration_tokens,
+        head_handle,
+        tail_handle,
         reference_audio=None,
     ):
         model, processor, sample_rate, device, model_id = moss_pipe
@@ -69,10 +76,13 @@ class MossTTSGenerate:
 
         tokens = duration_tokens if enable_duration_control else None
 
+        lang = None if language == "auto" else language
+
         user_msg = processor.build_user_message(
             text=text,
             reference=reference,
             tokens=tokens,
+            language=lang,
         )
 
         batch = processor([[user_msg]], mode="generation")
@@ -90,7 +100,8 @@ class MossTTSGenerate:
             raise RuntimeError("Generation failed — model returned no audio")
         wav = messages[0].audio_codes_list[0]
 
-        result = moss_tensor_to_comfyui_audio(wav.cpu(), sample_rate)
+        wav = apply_handles(wav.cpu(), sample_rate, head_handle, tail_handle)
+        result = moss_tensor_to_comfyui_audio(wav, sample_rate)
 
         mm.soft_empty_cache()
         return (result,)

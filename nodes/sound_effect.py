@@ -1,7 +1,7 @@
 import torch
 import comfy.model_management as mm
 
-from ..utils.audio_utils import moss_tensor_to_comfyui_audio
+from ..utils.audio_utils import apply_handles, moss_tensor_to_comfyui_audio
 from ..utils.backend import run_generation
 from ..utils.constants import TOKENS_PER_SECOND
 
@@ -22,6 +22,8 @@ class MossTTSSoundEffect:
                 "top_k": ("INT", {"default": 50, "min": 1, "max": 200, "step": 1}),
                 "repetition_penalty": ("FLOAT", {"default": 1.2, "min": 0.5, "max": 2.0, "step": 0.01}),
                 "max_new_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192, "step": 1}),
+                "head_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
+                "tail_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
             },
         }
 
@@ -41,6 +43,8 @@ class MossTTSSoundEffect:
         top_k,
         repetition_penalty,
         max_new_tokens,
+        head_handle,
+        tail_handle,
     ):
         model, processor, sample_rate, device, model_id = moss_pipe
 
@@ -75,7 +79,8 @@ class MossTTSSoundEffect:
             raise RuntimeError("Generation failed — model returned no audio")
         wav = messages[0].audio_codes_list[0]
 
-        result = moss_tensor_to_comfyui_audio(wav.cpu(), sample_rate)
+        wav = apply_handles(wav.cpu(), sample_rate, head_handle, tail_handle)
+        result = moss_tensor_to_comfyui_audio(wav, sample_rate)
 
         mm.soft_empty_cache()
         return (result,)

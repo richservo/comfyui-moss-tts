@@ -4,6 +4,7 @@ import torch
 import comfy.model_management as mm
 
 from ..utils.audio_utils import (
+    apply_handles,
     comfyui_audio_to_moss_tensor,
     moss_tensor_to_comfyui_audio,
     resample_if_needed,
@@ -107,6 +108,7 @@ class MossTTSDialogue:
         return {
             "required": {
                 "moss_pipe": ("MOSS_TTS_PIPE",),
+                "language": (["auto", "zh", "en", "ja", "ko"],),
                 "dialogue_text": ("STRING", {"default": "", "multiline": True}),
                 "speaker_count": ("INT", {"default": 2, "min": 2, "max": 2, "step": 1}),
                 "normalize_text": ("BOOLEAN", {"default": True}),
@@ -116,6 +118,8 @@ class MossTTSDialogue:
                 "top_k": ("INT", {"default": 50, "min": 1, "max": 200, "step": 1}),
                 "repetition_penalty": ("FLOAT", {"default": 1.1, "min": 0.5, "max": 2.0, "step": 0.01}),
                 "max_new_tokens": ("INT", {"default": 4096, "min": 1, "max": 8192, "step": 1}),
+                "head_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
+                "tail_handle": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1}),
             },
             "optional": {
                 "s1_reference_audio": ("AUDIO",),
@@ -133,6 +137,7 @@ class MossTTSDialogue:
     def generate(
         self,
         moss_pipe,
+        language,
         dialogue_text,
         speaker_count,
         normalize_text,
@@ -142,6 +147,8 @@ class MossTTSDialogue:
         top_k,
         repetition_penalty,
         max_new_tokens,
+        head_handle,
+        tail_handle,
         s1_reference_audio=None,
         s1_prompt_text="",
         s2_reference_audio=None,
@@ -196,9 +203,11 @@ class MossTTSDialogue:
             clone_wavs.append(wav)
             prompt_text_map[speaker_id] = _normalize_prompt_text(prompt_text, speaker_id)
 
+        lang = None if language == "auto" else language
+
         if not cloned_speakers:
             # Generation mode — no reference audio for any speaker
-            user_msg = processor.build_user_message(text=text)
+            user_msg = processor.build_user_message(text=text, language=lang)
             conversations = [[user_msg]]
             mode = "generation"
         else:
@@ -229,6 +238,7 @@ class MossTTSDialogue:
             user_msg = processor.build_user_message(
                 text=conversation_text,
                 reference=reference_audio_codes,
+                language=lang,
             )
             assistant_msg = processor.build_assistant_message(
                 audio_codes_list=[prompt_audio],
@@ -251,7 +261,8 @@ class MossTTSDialogue:
             raise RuntimeError("Generation failed — model returned no audio")
         wav = messages[0].audio_codes_list[0]
 
-        result = moss_tensor_to_comfyui_audio(wav.cpu(), sample_rate)
+        wav = apply_handles(wav.cpu(), sample_rate, head_handle, tail_handle)
+        result = moss_tensor_to_comfyui_audio(wav, sample_rate)
 
         mm.soft_empty_cache()
         return (result,)
