@@ -1,3 +1,4 @@
+import importlib.metadata
 import importlib.util
 import torch
 
@@ -79,10 +80,21 @@ def run_generation(model, input_ids, attention_mask, model_id, processor,
         )
 
 
+def _flash_attn_available() -> bool:
+    """Check that flash_attn is both importable and has valid package metadata."""
+    if importlib.util.find_spec("flash_attn") is None:
+        return False
+    try:
+        importlib.metadata.version("flash_attn")
+        return True
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
 def resolve_attn_implementation(device, dtype) -> str:
     if (
         str(device).startswith("cuda")
-        and importlib.util.find_spec("flash_attn") is not None
+        and _flash_attn_available()
         and dtype in {torch.float16, torch.bfloat16}
     ):
         major, _ = torch.cuda.get_device_capability()
